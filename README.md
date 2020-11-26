@@ -8,3 +8,5 @@ that you have still to watch
 ## Building
 if you want to build this from scratch, you need to include the client id for myanimelist
 in lib/api/oauth.dart
+
+![demo](https://user-images.githubusercontent.com/24765381/100392437-d67fd080-3036-11eb-8738-3b2586bf7819.jpg)
