@@ -1,3 +1,6 @@
+# security
+lib/api/clientId.dart
+
 # Miscellaneous
 *.class
 *.log

@@ -6,8 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_web_auth/flutter_web_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'clientId.dart';
+
 class MalClient {
-  final _clientId = '';
   final _storage = FlutterSecureStorage();
 
   String _authString;
@@ -34,7 +35,7 @@ class MalClient {
     }
 
     final verifier = _createOAuthCodeVerifier();
-    final authUrl = _generateLoginUrl(_clientId, verifier);
+    final authUrl = _generateLoginUrl(clientId, verifier);
     // final client = MalOAuth2Client(
     //     redirectUri: 'my.test.app://oauth2redirect',
     //     customUriScheme: 'my.test.app');
@@ -52,7 +53,7 @@ class MalClient {
     // final state = Uri.parse(result).queryParameters['state'];
 
     final params = {
-      'client_id': _clientId,
+      'client_id': clientId,
       'code': code,
       'code_verifier': verifier,
       'grant_type': 'authorization_code'
@@ -70,7 +71,7 @@ class MalClient {
 
   Future<void> _refreshTokens() async {
     final params = {
-      'client_id': _clientId,
+      'client_id': clientId,
       'grant_type': 'refresh_token',
       'refresh_token': _refreshToken
     };
