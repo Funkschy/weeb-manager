@@ -2,6 +2,32 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+class AnimeSeason {
+  int year;
+  String season;
+  AnimeSeason(int year, String season)
+      : year = year,
+        season = season;
+
+  static AnimeSeason current() {
+    var now = DateTime.now();
+    if (now.month >= 1 && now.month <= 3) {
+      return AnimeSeason(now.year, 'WINTER');
+    }
+    if (now.month >= 4 && now.month <= 6) {
+      return AnimeSeason(now.year, 'SPRING');
+    }
+    if (now.month >= 7 && now.month <= 9) {
+      return AnimeSeason(now.year, 'SUMMER');
+    }
+    if (now.month >= 10 && now.month <= 12) {
+      return AnimeSeason(now.year, 'FALL');
+    }
+
+    return null;
+  }
+}
+
 class AnilistInfo {
   const AnilistInfo(this.currentEpisode);
 
@@ -10,20 +36,27 @@ class AnilistInfo {
 
 final String _apiUrl = 'https://graphql.anilist.co';
 final String _airingEpQuery = '''
-query media(\$search:String) {
-  Page(page:1) {
-    media(search:\$search) {
-      id,
+query media(\$page:Int = 1 \$type:MediaType \$season:MediaSeason \$year:String \$sort:[MediaSort]=[POPULARITY_DESC,SCORE_DESC]) {
+  Page(page:\$page,perPage:100) {
+    media(type:\$type season:\$season startDate_like:\$year sort:\$sort) {
+      title{native,english}
+      episodes
       nextAiringEpisode{airingAt timeUntilAiring episode}
     }
   }
 }
 ''';
 
-Future<AnilistInfo> getAnilistInfo(String name) async {
+Future<Map<String, AnilistInfo>> getAnilistInfo() async {
+  final currentSeason = AnimeSeason.current();
+
   final params = {
     'query': _airingEpQuery,
-    'variables': {'search': name},
+    'variables': {
+      'season': currentSeason.season,
+      'type': 'ANIME',
+      'year': '${currentSeason.year}%'
+    },
   };
 
   final headers = {'Content-Type': 'application/json'};
@@ -33,17 +66,27 @@ Future<AnilistInfo> getAnilistInfo(String name) async {
   final json = jsonDecode(resp.body);
 
   final media = json['data']['Page']['media'];
+  final map = Map<String, AnilistInfo>();
+
   // some error happened
   if (media.length == 0) {
-    return AnilistInfo(0);
+    return map;
   }
 
-// find the first object which is still running
   for (var obj in media) {
+    // default to episode count
+    var info = AnilistInfo(obj['episodes']);
     if (obj['nextAiringEpisode'] != null) {
-      return AnilistInfo(obj['nextAiringEpisode']['episode'] - 1);
+      info = AnilistInfo(obj['nextAiringEpisode']['episode'] - 1);
+    }
+    if (obj['title']['native'] != null) {
+      map[obj['title']['native']] = info;
+    }
+    // the english version is included as a backup
+    if (obj['title']['english'] != null) {
+      map[obj['title']['english']] = info;
     }
   }
 
-  return AnilistInfo(0);
+  return map;
 }

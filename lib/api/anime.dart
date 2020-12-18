@@ -13,6 +13,7 @@ class CurrentlyWatchingAnime {
 class _MalInfo implements CurrentlyWatchingAnime {
   String jpTitle;
   String status;
+  AnimeSeason startSeason;
   int id;
   int numEpsWatched;
 
@@ -34,6 +35,8 @@ class _MalInfo implements CurrentlyWatchingAnime {
     status = json['status'];
     numEpsWatched = json['my_list_status']['num_episodes_watched'];
     jpTitle = json['alternative_titles']['ja'];
+    var season = json['start_season'];
+    startSeason = AnimeSeason(season['year'], season['season']);
     _title = json['title'];
     _imageUrl = json['main_picture']['large'];
   }
@@ -86,23 +89,28 @@ Future<List<CurrentlyWatchingAnime>> fetch(MalClient client) async {
     return [];
   }
 
-  Future<__ApiCombo> fetchAnimeInfo(String title, int id) async {
+  Future<__ApiCombo> fetchAnimeInfo(
+      Map<String, AnilistInfo> airingInfos, String title, int id) async {
     final malInfoData = await client.apiGet('/anime/' +
         id.toString() +
-        '?fields=id,title,status,my_list_status,alternative_titles');
+        '?fields=id,title,status,my_list_status,alternative_titles,start_season');
 
     final malJson = jsonDecode(malInfoData.body);
     final malInfo = _MalInfo.fromInfoJson(malJson);
-    if (malInfo.status != 'currently_airing') {
+
+    // the japanese title is usually the same on every site, while the
+    //english title can vary
+    var info = airingInfos[malInfo.jpTitle];
+    if (info == null) {
+      info = airingInfos[malInfo.title];
+    }
+
+    if (info == null) {
       // we only want to fetch the anilist info if we the series is airing
       return __ApiCombo(malInfo, AnilistInfo(0));
     }
 
-    // the japanese title is usually the same on every site, while the
-    //english title can vary
-    final searchTitle = malInfo.jpTitle != null ? malInfo.jpTitle : title;
-    final anilistInfo = getAnilistInfo(searchTitle);
-    return __ApiCombo(malInfo, await anilistInfo);
+    return __ApiCombo(malInfo, info);
   }
 
   List<Future<__ApiCombo>> waitingFor = [];
@@ -112,10 +120,14 @@ Future<List<CurrentlyWatchingAnime>> fetch(MalClient client) async {
     final list = _MalInfoList([]);
     list.next = initUrl;
     do {
-      final animelist = jsonDecode((await client.get(list.next)).body);
+      final malResult = client.get(list.next);
+      final anilistResult = getAnilistInfo();
+
+      final animelist = jsonDecode((await malResult).body);
+      final airingInfos = await anilistResult;
       final nextList = _MalInfoList.fromJson(animelist);
       for (var anime in nextList.animes) {
-        waitingFor.add(fetchAnimeInfo(anime.title, anime.id));
+        waitingFor.add(fetchAnimeInfo(airingInfos, anime.title, anime.id));
       }
       list.merge(nextList);
     } while (list.next != null);
@@ -125,15 +137,13 @@ Future<List<CurrentlyWatchingAnime>> fetch(MalClient client) async {
   for (var future in waitingFor) {
     final info = await future;
     final malData = info.malInfo;
-    if (malData.status == 'currently_airing') {
-      final behind = info.aniListInfo.currentEpisode - malData.numEpsWatched;
-      if (behind <= 0) {
-        continue;
-      }
-
-      malData.behind = behind;
-      airingAnimes.add(malData);
+    final behind = info.aniListInfo.currentEpisode - malData.numEpsWatched;
+    if (behind <= 0) {
+      continue;
     }
+
+    malData.behind = behind;
+    airingAnimes.add(malData);
   }
 
   return airingAnimes;
