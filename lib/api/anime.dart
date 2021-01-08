@@ -100,9 +100,9 @@ Future<List<CurrentlyWatchingAnime>> fetch(MalClient client) async {
 
     // the japanese title is usually the same on every site, while the
     //english title can vary
-    var info = airingInfos[malInfo.jpTitle];
+    var info = airingInfos[malInfo.jpTitle.toLowerCase()];
     if (info == null) {
-      info = airingInfos[malInfo.title];
+      info = airingInfos[malInfo.title.toLowerCase()];
     }
 
     if (info == null) {

@@ -39,7 +39,7 @@ final String _airingEpQuery = '''
 query media(\$page:Int = 1 \$type:MediaType \$season:MediaSeason \$year:String \$sort:[MediaSort]=[POPULARITY_DESC,SCORE_DESC]) {
   Page(page:\$page,perPage:100) {
     media(type:\$type season:\$season startDate_like:\$year sort:\$sort) {
-      title{native,english}
+      title{native,english,romaji}
       episodes
       nextAiringEpisode{airingAt timeUntilAiring episode}
     }
@@ -80,11 +80,14 @@ Future<Map<String, AnilistInfo>> getAnilistInfo() async {
       info = AnilistInfo(obj['nextAiringEpisode']['episode'] - 1);
     }
     if (obj['title']['native'] != null) {
-      map[obj['title']['native']] = info;
+      map[obj['title']['native'].toLowerCase()] = info;
+    }
+    if (obj['title']['romaji'] != null) {
+      map[obj['title']['romaji'].toLowerCase()] = info;
     }
     // the english version is included as a backup
     if (obj['title']['english'] != null) {
-      map[obj['title']['english']] = info;
+      map[obj['title']['english'].toLowerCase()] = info;
     }
   }
 
