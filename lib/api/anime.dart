@@ -98,13 +98,7 @@ Future<List<CurrentlyWatchingAnime>> fetch(MalClient client) async {
     final malJson = jsonDecode(malInfoData.body);
     final malInfo = _MalInfo.fromInfoJson(malJson);
 
-    // the japanese title is usually the same on every site, while the
-    //english title can vary
-    var info = airingInfos[malInfo.jpTitle.toLowerCase()];
-    if (info == null) {
-      info = airingInfos[malInfo.title.toLowerCase()];
-    }
-
+    var info = airingInfos[malInfo.id.toString()];
     if (info == null) {
       // we only want to fetch the anilist info if we the series is airing
       return __ApiCombo(malInfo, AnilistInfo(0));
