@@ -89,39 +89,39 @@ Future<List<CurrentlyWatchingAnime>> fetch(MalClient client) async {
     return [];
   }
 
-  Future<__ApiCombo> fetchAnimeInfo(
-      Map<String, AnilistInfo> airingInfos, String title, int id) async {
-    final malInfoData = await client.apiGet('/anime/' +
-        id.toString() +
-        '?fields=id,title,status,my_list_status,alternative_titles,start_season');
+  final airingInfos = await getAnilistInfo();
+
+  Future<__ApiCombo> fetchAnimeInfo(int malId) async {
+    String id = malId.toString();
+
+    var info = airingInfos[id];
+    if (info == null) {
+      // we only want to fetch the anilist info if we the series is airing
+      return null;
+    }
+
+    final malInfoData = await client.apiGet(
+        '/anime/$id?fields=id,title,status,my_list_status,alternative_titles,start_season');
 
     final malJson = jsonDecode(malInfoData.body);
     final malInfo = _MalInfo.fromInfoJson(malJson);
-
-    var info = airingInfos[malInfo.id.toString()];
-    if (info == null) {
-      // we only want to fetch the anilist info if we the series is airing
-      return __ApiCombo(malInfo, AnilistInfo(0));
-    }
-
     return __ApiCombo(malInfo, info);
   }
 
   List<Future<__ApiCombo>> waitingFor = [];
+  // fetch all the anime on the "watching" list
   {
     String initUrl =
         'https://api.myanimelist.net/v2/users/@me/animelist?status=watching';
     final list = _MalInfoList([]);
     list.next = initUrl;
     do {
-      final malResult = client.get(list.next);
-      final anilistResult = getAnilistInfo();
+      final malResult = await client.get(list.next);
+      final animelist = jsonDecode(malResult.body);
 
-      final animelist = jsonDecode((await malResult).body);
-      final airingInfos = await anilistResult;
       final nextList = _MalInfoList.fromJson(animelist);
       for (var anime in nextList.animes) {
-        waitingFor.add(fetchAnimeInfo(airingInfos, anime.title, anime.id));
+        waitingFor.add(fetchAnimeInfo(anime.id));
       }
       list.merge(nextList);
     } while (list.next != null);
@@ -130,6 +130,10 @@ Future<List<CurrentlyWatchingAnime>> fetch(MalClient client) async {
   List<CurrentlyWatchingAnime> airingAnimes = [];
   for (var future in waitingFor) {
     final info = await future;
+    if (info == null) {
+      continue;
+    }
+
     final malData = info.malInfo;
     final behind = info.aniListInfo.currentEpisode - malData.numEpsWatched;
     if (behind <= 0) {
