@@ -8,6 +8,8 @@ class AnimeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final counter = anime.behind <= 1 ? 'episode' : 'episodes';
+
     return Card(
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -19,7 +21,7 @@ class AnimeCard extends StatelessWidget {
             Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'you are ${anime.behind.toString()} episodes behind',
+                  'you are ${anime.behind.toString()} $counter behind',
                 ))
           ],
         ));
